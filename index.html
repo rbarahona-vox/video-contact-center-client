@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Audi - Soporte Video</title>
+    <script src="https://unpkg.com/voximplant-websdk"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #0f172a;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white flex flex-col items-center justify-center min-h-screen">
+    <div class="text-center">
+        <h1 class="text-3xl font-light mb-8 tracking-widest uppercase">Audi Live Support</h1>
+        
+        <!-- Video remoto: agente -->
+        <div id="agentVideo" class="video-wrapper w-[640px] h-[360px] bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl mb-3 flex items-center justify-center">
+            <p id="statusLabel" class="text-slate-500 font-mono text-xs">LISTO PARA CONECTAR</p>
+        </div>
+        
+        <!-- Video local: cliente -->
+        <div id="clientLocalVideo" class="video-wrapper w-[200px] h-[112px] bg-slate-900 rounded-xl border border-slate-700 shadow-lg mb-6 mx-auto flex items-center justify-center text-[10px] text-slate-500">
+            PREVIEW LOCAL
+        </div>
+        
+        <button id="btnCall" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-8 py-3 rounded-full font-bold transition-all transform hover:scale-105">
+            INICIAR VIDEOLLAMADA
+        </button>
+    </div>
+
+    <script src="client.js"></script>
+</body>
+</html>
