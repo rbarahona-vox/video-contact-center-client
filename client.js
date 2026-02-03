@@ -31,25 +31,30 @@ async function init() {
     const btn = document.getElementById("btnCall");
     if (btn) btn.innerText = "INICIAR VIDEOLLAMADA";
 
-  try {
-    console.log("CLIENTE: Iniciando preview local fuera de la llamada...");
-    const localDiv = document.getElementById("clientLocalVideo");
-    await sdk.showLocalVideo(true, localDiv);
-    console.log("CLIENTE: Preview local inicializada (showLocalVideo)");
-    if (localDiv) {
-      const videos = document.querySelectorAll("video");
-      const lastVideo = videos[videos.length - 1];
-      if (lastVideo && !localDiv.contains(lastVideo)) {
-        localDiv.innerHTML = "";
-        localDiv.appendChild(lastVideo);
-        console.log("CLIENTE: Preview local movida dentro de #clientLocalVideo");
+    try {
+      console.log("CLIENTE: Iniciando preview local fuera de la llamada...");
+      const localDiv = document.getElementById("clientLocalVideo");
+      await sdk.showLocalVideo(true, localDiv);
+      
+      console.log("CLIENTE: Preview local inicializada (showLocalVideo)");
+      
+      if (localDiv) {
+        const videos = document.querySelectorAll("video");
+        const lastVideo = videos[videos.length - 1];
+        if (lastVideo && !localDiv.contains(lastVideo)) {
+          localDiv.innerHTML = "";
+          localDiv.appendChild(lastVideo);
+          console.log("CLIENTE: Preview local movida dentro de #clientLocalVideo");
+        }
       }
+      const statusLabel = document.getElementById("statusLabel");
+      if (statusLabel) statusLabel.innerText = "PREVIEW LOCAL ACTIVA";
+    } catch (e) {
+      console.warn("CLIENTE: No se pudo iniciar preview local anticipada", e);
     }
-    const statusLabel = document.getElementById("statusLabel");
-    if (statusLabel) statusLabel.innerText = "PREVIEW LOCAL ACTIVA";
-  } catch (e) {
-    console.warn("CLIENTE: No se pudo iniciar preview local anticipada", e);
-  }
+
+    // MONITOR CONTINUO: Detecta y mueve videos huérfanos cada 500ms
+    setInterval(monitorAndMoveOrphanVideos, 500);
 
     console.log("CLIENTE: Listo para llamar.");
   } catch (e) {
@@ -85,85 +90,114 @@ async function makeCall() {
 
     console.log("CLIENTE: Llamada enviada al SDK. ID temporal:", currentCall.id());
 
-    // 1) VIDEO LOCAL DEL CLIENTE
+    // 1) VIDEO LOCAL DEL CLIENTE (saliente)
     currentCall.on(VoxImplant.CallEvents.LocalVideoStreamAdded, (event) => {
       console.log("CLIENTE: LocalVideoStreamAdded");
       const localContainer = document.getElementById("clientLocalVideo");
-      if (!localContainer) {
-        console.warn("CLIENTE: No se encontró contenedor de video local (clientLocalVideo)");
-        return;
-      }
+      if (!localContainer) return;
+      
       localContainer.innerHTML = "";
       event.videoStream.render(localContainer);
     });
 
-    // 2) ENDPOINTS REMOTOS (VIDEO DEL AGENTE)
+    // 2) VIDEO REMOTO DEL AGENTE (entrante)
+    currentCall.on(VoxImplant.CallEvents.RemoteVideoStreamAdded, (event) => {
+      console.log("CLIENTE: RemoteVideoStreamAdded (Call)");
+      renderRemoteVideo(event.videoStream);
+    });
+
+    // 3) ENDPOINTS REMOTOS
     try {
       if (typeof currentCall.getEndpoints === "function") {
         const existingEndpoints = currentCall.getEndpoints();
-        console.log("CLIENTE: Endpoints existentes en la llamada:", existingEndpoints.length);
         existingEndpoints.forEach(attachEndpointHandlers);
-      } else {
-        console.warn("CLIENTE: currentCall.getEndpoints no está disponible");
       }
     } catch (err) {
-      console.error("CLIENTE: Error consultando endpoints existentes:", err);
+      console.error("CLIENTE: Error consultando endpoints:", err);
     }
 
     currentCall.on(VoxImplant.CallEvents.EndpointAdded, (e) => {
-      console.log("CLIENTE: EndpointAdded recibido");
       attachEndpointHandlers(e.endpoint);
     });
 
     currentCall.on(VoxImplant.CallEvents.Connected, () => {
-      console.log("%c✔ LLAMADA CONECTADA AL SERVIDOR", "color: green; font-weight: bold;");
+      console.log("%c✔ LLAMADA CONECTADA", "color: green; font-weight: bold;");
       if (statusLabel) statusLabel.innerText = "CONECTADO CON EL AGENTE";
     });
 
     currentCall.on(VoxImplant.CallEvents.Failed, (e) => {
-      console.error("%c✘ LLAMADA FALLIDA", "color: red; font-weight: bold;", e.reason, e.code);
       if (statusLabel) statusLabel.innerText = "FALLO: " + e.reason;
       currentCall = null;
       resetClientUI();
     });
 
     currentCall.on(VoxImplant.CallEvents.Disconnected, () => {
-      console.log("CLIENTE: Llamada finalizada (Disconnected)");
       if (statusLabel) statusLabel.innerText = "LLAMADA FINALIZADA";
       currentCall = null;
       resetClientUI();
     });
   } catch (error) {
-    console.error("CRITICAL ERROR dentro de makeCall:", error);
+    console.error("CRITICAL ERROR en makeCall:", error);
   }
+}
+
+function renderRemoteVideo(videoStream) {
+  const remoteContainer = document.getElementById("agentVideo");
+  
+  if (!remoteContainer) {
+    console.warn("CLIENTE: No se encontró el contenedor DIV 'agentVideo'");
+    return;
+  }
+
+  try {
+    // Limpiamos el contenedor primero
+    remoteContainer.innerHTML = "";
+    
+    // Renderizamos el video en el contenedor
+    videoStream.render(remoteContainer);
+    
+    console.log("CLIENTE: Video remoto renderizado en div#agentVideo");
+    
+  } catch (e) {
+    console.error("CLIENTE: Error al renderizar video remoto", e);
+  }
+}
+
+function monitorAndMoveOrphanVideos() {
+  const allVideos = document.querySelectorAll("video");
+  const localContainer = document.getElementById("clientLocalVideo");
+  const remoteContainer = document.getElementById("agentVideo");
+  
+  allVideos.forEach(video => {
+    // Si el video NO está dentro de ninguno de nuestros contenedores
+    if (!localContainer.contains(video) && !remoteContainer.contains(video)) {
+      console.warn("CLIENTE: Video huérfano detectado, moviendo a remoteContainer...");
+      
+      // Determinamos a cuál contenedor pertenece basándonos en el tamaño
+      // Videos pequeños (preview local) vs videos grandes (remoto)
+      const videoWidth = video.videoWidth || video.offsetWidth;
+      
+      if (videoWidth > 400 || video.videoWidth === 0) {
+        // Probablemente es el video remoto (más grande)
+        remoteContainer.innerHTML = "";
+        remoteContainer.appendChild(video);
+        console.log("✅ Video movido a agentVideo (remoto)");
+      } else {
+        // Probablemente es el video local (más pequeño)
+        localContainer.innerHTML = "";
+        localContainer.appendChild(video);
+        console.log("✅ Video movido a clientLocalVideo (local)");
+      }
+    }
+  });
 }
 
 function attachEndpointHandlers(endpoint) {
   if (!endpoint) return;
-
+  
   endpoint.on(VoxImplant.EndpointEvents.RemoteVideoStreamAdded, (ev) => {
-    console.log("CLIENTE: RemoteVideoStreamAdded");
-
-    const remoteContainer = document.getElementById("agentVideo");
-    if (!remoteContainer) {
-      console.warn("CLIENTE: No se encontró contenedor de video remoto (agentVideo)");
-      return;
-    }
-
-    // 1) Intento “normal”: pedirle al SDK que pinte en la caja grande
-    remoteContainer.innerHTML = "";
-    ev.videoStream.render(remoteContainer);
-
-    // 2) Si el SDK igualmente crea el <video> colgando de <body>,
-    // lo reubicamos dentro de agentVideo.
-    const videos = document.querySelectorAll("video");
-    const lastVideo = videos[videos.length - 1];
-
-    if (lastVideo && lastVideo.parentElement === document.body) {
-      console.log("CLIENTE: Reubicando video remoto desde <body> a #agentVideo");
-      remoteContainer.innerHTML = "";
-      remoteContainer.appendChild(lastVideo);
-    }
+    console.log("CLIENTE: Endpoint Video detectado");
+    renderRemoteVideo(ev.videoStream);
   });
 }
 
@@ -172,7 +206,7 @@ function resetClientUI() {
   const remote = document.getElementById("agentVideo");
   const statusLabel = document.getElementById("statusLabel");
 
-  if (local) local.innerHTML = "PREVIEW LOCAL";
+  if (local) local.innerHTML = "";
   if (remote) remote.innerHTML = '<p id="statusLabel" class="text-slate-500 font-mono text-xs">LISTO PARA CONECTAR</p>';
   if (statusLabel) statusLabel.innerText = "LISTO PARA CONECTAR";
 }

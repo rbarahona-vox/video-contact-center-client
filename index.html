@@ -39,7 +39,12 @@
         
         <!-- Video remoto: agente -->
         <div id="agentVideo" class="video-wrapper w-[640px] h-[360px] bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl mb-3 flex items-center justify-center">
-            <p id="statusLabel" class="text-slate-500 font-mono text-xs">LISTO PARA CONECTAR</p>
+            <!-- NUEVO: video explícito para el remoto -->
+            <video id="remoteVideo" autoplay playsinline></video>
+            <!-- Texto de estado (puede quedar detrás del video) -->
+            <p id="statusLabel" class="text-slate-500 font-mono text-xs absolute">
+                LISTO PARA CONECTAR
+            </p>
         </div>
         
         <!-- Video local: cliente -->
