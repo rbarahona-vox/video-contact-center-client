@@ -3,17 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>Audi - Soporte Video</title>
-    <script src="https://unpkg.com/voximplant-websdk"></script>
+    <script src="https://unpkg.com/voximplant-websdk@4.11.1-2965"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <style>
-        .video-wrapper video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: #0f172a;
-        }
-    </style>
+<style>
+    /* El contenedor manda sobre el tamaño */
+    #clientLocalVideo {
+        position: relative;
+        overflow: hidden;
+        display: block !important; /* Asegura que el div tenga dimensiones */
+    }
+
+    /* Forzamos al elemento que inyecta Voximplant */
+    #clientLocalVideo video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform: rotateY(180deg); /* Efecto espejo */
+    }
+
+    /* Estilo para el video del agente (cuadro grande) */
+    #agentVideo video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+    }
+</style>
 </head>
 <body class="bg-slate-900 text-white flex flex-col items-center justify-center min-h-screen">
     <div class="text-center">

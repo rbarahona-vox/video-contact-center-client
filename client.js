@@ -1,5 +1,3 @@
-// client.js
-
 const sdk = VoxImplant.getInstance();
 let currentCall = null;
 
@@ -7,7 +5,7 @@ const CLIENT_CONFIG = {
   USER: "invitado@video-contact-center.rbarahona.n2.voximplant.com",
   PASS: "temporal123*",
   RULE: "video-contact-center-queue",
-  NODE: VoxImplant.ConnectionNode.NODE_2,
+  NODE: VoxImplant.ConnectionNode.NODE_2, 
 };
 
 async function init() {
@@ -15,7 +13,7 @@ async function init() {
     console.log("CLIENTE: Iniciando SDK...");
 
     await sdk.init({
-      node: CLIENT_CONFIG.NODE,
+      node: CLIENT_CONFIG.NODE, 
       queueType: VoxImplant.QueueTypes.SmartQueue,
       micRequired: true,
       videoSupport: true,
@@ -33,15 +31,25 @@ async function init() {
     const btn = document.getElementById("btnCall");
     if (btn) btn.innerText = "INICIAR VIDEOLLAMADA";
 
-    try {
-      console.log("CLIENTE: Iniciando preview local fuera de la llamada...");
-      await sdk.showLocalVideo(true, "clientLocalVideo");
-      console.log("CLIENTE: Preview local inicializada en clientLocalVideo");
-      const statusLabel = document.getElementById("statusLabel");
-      if (statusLabel) statusLabel.innerText = "PREVIEW LOCAL ACTIVA";
-    } catch (e) {
-      console.warn("CLIENTE: No se pudo iniciar preview local anticipada", e);
+  try {
+    console.log("CLIENTE: Iniciando preview local fuera de la llamada...");
+    const localDiv = document.getElementById("clientLocalVideo");
+    await sdk.showLocalVideo(true, localDiv);
+    console.log("CLIENTE: Preview local inicializada (showLocalVideo)");
+    if (localDiv) {
+      const videos = document.querySelectorAll("video");
+      const lastVideo = videos[videos.length - 1];
+      if (lastVideo && !localDiv.contains(lastVideo)) {
+        localDiv.innerHTML = "";
+        localDiv.appendChild(lastVideo);
+        console.log("CLIENTE: Preview local movida dentro de #clientLocalVideo");
+      }
     }
+    const statusLabel = document.getElementById("statusLabel");
+    if (statusLabel) statusLabel.innerText = "PREVIEW LOCAL ACTIVA";
+  } catch (e) {
+    console.warn("CLIENTE: No se pudo iniciar preview local anticipada", e);
+  }
 
     console.log("CLIENTE: Listo para llamar.");
   } catch (e) {
@@ -65,23 +73,19 @@ async function makeCall() {
   }
 
   try {
-    console.log("CLIENTE: Configurando objeto de llamada para regla:", CLIENT_CONFIG.RULE);
+    console.log("CLIENTE: Llamando a la regla:", CLIENT_CONFIG.RULE);
 
-    const callSettings = {
+    currentCall = sdk.call({
+      number: CLIENT_CONFIG.RULE,
       video: {
         sendVideo: true,
         receiveVideo: true,
       },
-    };
-
-    // WebSDK 4: call(destino, callSettings)
-    currentCall = sdk.call(CLIENT_CONFIG.RULE, callSettings);
+    });
 
     console.log("CLIENTE: Llamada enviada al SDK. ID temporal:", currentCall.id());
 
-    // ==============================
     // 1) VIDEO LOCAL DEL CLIENTE
-    // ==============================
     currentCall.on(VoxImplant.CallEvents.LocalVideoStreamAdded, (event) => {
       console.log("CLIENTE: LocalVideoStreamAdded");
       const localContainer = document.getElementById("clientLocalVideo");
@@ -93,9 +97,7 @@ async function makeCall() {
       event.videoStream.render(localContainer);
     });
 
-    // ================================================
     // 2) ENDPOINTS REMOTOS (VIDEO DEL AGENTE)
-    // ================================================
     try {
       if (typeof currentCall.getEndpoints === "function") {
         const existingEndpoints = currentCall.getEndpoints();
@@ -113,29 +115,13 @@ async function makeCall() {
       attachEndpointHandlers(e.endpoint);
     });
 
-    // ==============================
-    // 3) ESTADO DE LA LLAMADA
-    // ==============================
     currentCall.on(VoxImplant.CallEvents.Connected, () => {
-      console.log(
-        "%c✔ LLAMADA CONECTADA AL SERVIDOR",
-        "color: green; font-weight: bold;"
-      );
+      console.log("%c✔ LLAMADA CONECTADA AL SERVIDOR", "color: green; font-weight: bold;");
       if (statusLabel) statusLabel.innerText = "CONECTADO CON EL AGENTE";
-      
-      // ⚠️ IMPORTANTE:
-      // No llamamos a currentCall.sendVideo(true) aquí, porque
-      // está provocando un error interno en el WebSDK.
-      // Dejamos que el envío de vídeo lo gestione la config inicial.
     });
 
     currentCall.on(VoxImplant.CallEvents.Failed, (e) => {
-      console.error(
-        "%c✘ LLAMADA FALLIDA",
-        "color: red; font-weight: bold;",
-        e.reason,
-        e.code
-      );
+      console.error("%c✘ LLAMADA FALLIDA", "color: red; font-weight: bold;", e.reason, e.code);
       if (statusLabel) statusLabel.innerText = "FALLO: " + e.reason;
       currentCall = null;
       resetClientUI();
@@ -153,24 +139,31 @@ async function makeCall() {
 }
 
 function attachEndpointHandlers(endpoint) {
-  if (!endpoint) {
-    console.warn("CLIENTE: attachEndpointHandlers llamado sin endpoint");
-    return;
-  }
-
-  try {
-    console.log("CLIENTE: attachEndpointHandlers para endpoint, id:", endpoint.id && endpoint.id());
-  } catch (_) {}
+  if (!endpoint) return;
 
   endpoint.on(VoxImplant.EndpointEvents.RemoteVideoStreamAdded, (ev) => {
     console.log("CLIENTE: RemoteVideoStreamAdded");
+
     const remoteContainer = document.getElementById("agentVideo");
     if (!remoteContainer) {
       console.warn("CLIENTE: No se encontró contenedor de video remoto (agentVideo)");
       return;
     }
+
+    // 1) Intento “normal”: pedirle al SDK que pinte en la caja grande
     remoteContainer.innerHTML = "";
     ev.videoStream.render(remoteContainer);
+
+    // 2) Si el SDK igualmente crea el <video> colgando de <body>,
+    // lo reubicamos dentro de agentVideo.
+    const videos = document.querySelectorAll("video");
+    const lastVideo = videos[videos.length - 1];
+
+    if (lastVideo && lastVideo.parentElement === document.body) {
+      console.log("CLIENTE: Reubicando video remoto desde <body> a #agentVideo");
+      remoteContainer.innerHTML = "";
+      remoteContainer.appendChild(lastVideo);
+    }
   });
 }
 
@@ -179,18 +172,10 @@ function resetClientUI() {
   const remote = document.getElementById("agentVideo");
   const statusLabel = document.getElementById("statusLabel");
 
-  if (local) {
-    local.innerHTML = "PREVIEW LOCAL";
-  }
-  if (remote && !statusLabel) {
-    remote.innerHTML = "";
-  }
-  if (statusLabel) {
-    statusLabel.innerText = "LISTO PARA CONECTAR";
-  }
+  if (local) local.innerHTML = "PREVIEW LOCAL";
+  if (remote) remote.innerHTML = '<p id="statusLabel" class="text-slate-500 font-mono text-xs">LISTO PARA CONECTAR</p>';
+  if (statusLabel) statusLabel.innerText = "LISTO PARA CONECTAR";
 }
 
 document.getElementById("btnCall").addEventListener("click", makeCall);
-
-// Arrancamos el flujo
 init();
