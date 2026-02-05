@@ -1,5 +1,6 @@
 const sdk = VoxImplant.getInstance();
 let currentCall = null;
+let isMicMuted = false;
 
 const CLIENT_CONFIG = {
   USER: "invitado@video-contact-center.rbarahona.n2.voximplant.com",
@@ -28,8 +29,11 @@ async function init() {
     await sdk.login(CLIENT_CONFIG.USER, CLIENT_CONFIG.PASS);
     console.log("CLIENTE: Login exitoso como", CLIENT_CONFIG.USER);
 
-    const btn = document.getElementById("btnCall");
-    if (btn) btn.innerText = "INICIAR VIDEOLLAMADA";
+    updateCallButton({
+      text: "INICIAR VIDEOLLAMADA",
+      enabled: true,
+    });
+
 
     try {
       console.log("CLIENTE: Iniciando preview local fuera de la llamada...");
@@ -87,7 +91,11 @@ async function makeCall() {
         receiveVideo: true,
       },
     });
-
+    updateCallButton({
+      text: "SOLICITUD ENVIADA",
+      enabled: false,
+    });
+    
     console.log("CLIENTE: Llamada enviada al SDK. ID temporal:", currentCall.id());
 
     // 1) VIDEO LOCAL DEL CLIENTE (saliente)
@@ -123,6 +131,7 @@ async function makeCall() {
     currentCall.on(VoxImplant.CallEvents.Connected, () => {
       console.log("%c✔ LLAMADA CONECTADA", "color: green; font-weight: bold;");
       if (statusLabel) statusLabel.innerText = "CONECTADO CON EL AGENTE";
+
     });
 
     currentCall.on(VoxImplant.CallEvents.Failed, (e) => {
@@ -135,6 +144,10 @@ async function makeCall() {
       if (statusLabel) statusLabel.innerText = "LLAMADA FINALIZADA";
       currentCall = null;
       resetClientUI();
+      updateCallButton({
+        text: "INICIAR VIDEOLLAMADA",
+        enabled: true,
+      });
     });
   } catch (error) {
     console.error("CRITICAL ERROR en makeCall:", error);
@@ -199,6 +212,10 @@ function attachEndpointHandlers(endpoint) {
     console.log("CLIENTE: Endpoint Video detectado");
     renderRemoteVideo(ev.videoStream);
   });
+    updateCallButton({
+      text: "FINALIZAR LLAMADA",
+      enabled: true,
+    });
 }
 
 function resetClientUI() {
@@ -211,5 +228,72 @@ function resetClientUI() {
   if (statusLabel) statusLabel.innerText = "LISTO PARA CONECTAR";
 }
 
-document.getElementById("btnCall").addEventListener("click", makeCall);
+function updateCallButton({ text, enabled }) {
+  const btn = document.getElementById("btnCall");
+  if (!btn) return;
+
+  btn.innerText = text;
+  btn.disabled = !enabled;
+
+  btn.classList.remove(
+    "bg-emerald-500",
+    "hover:bg-emerald-400",
+    "bg-slate-600",
+    "cursor-not-allowed"
+  );
+
+  if (enabled) {
+    btn.classList.add("bg-emerald-500", "hover:bg-emerald-400");
+  } else {
+    btn.classList.add("bg-slate-600", "cursor-not-allowed");
+  }
+}
+
+
+document.getElementById("btnCall").addEventListener("click", () => {
+  if (currentCall) {
+    console.log("CLIENTE: Finalizando llamada...");
+    try {
+      currentCall.hangup();
+    } catch (e) {
+      console.error("Error colgando llamada", e);
+    }
+  } else {
+    makeCall();
+  }
+});
+
+function toggleMicrophoneMute() {
+  const videos = document.querySelectorAll("video");
+
+  let audioTrack = null;
+
+  videos.forEach(video => {
+    if (video.srcObject instanceof MediaStream) {
+      const tracks = video.srcObject.getAudioTracks();
+      if (tracks.length) audioTrack = tracks[0];
+    }
+  });
+
+  if (!audioTrack) {
+    console.warn("MIC: No se encontró audio track");
+    return;
+  }
+
+  isMicMuted = !isMicMuted;
+  audioTrack.enabled = !isMicMuted;
+
+  console.log(
+    `MICRÓFONO ${isMicMuted ? "MUTEADO" : "ACTIVO"}`
+  );
+}
+
+document.getElementById("btnMic").addEventListener("click", () => {
+  toggleMicrophoneMute();
+
+  const btn = document.getElementById("btnMic");
+  btn.innerText = isMicMuted ? "🔇 MIC OFF" : "🎤 MIC ON";
+});
+
 init();
+

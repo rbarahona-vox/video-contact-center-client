@@ -1,62 +1,92 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Audi - Soporte Video</title>
-    <script src="https://unpkg.com/voximplant-websdk@4.11.1-2965"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>Audi - Soporte Video</title>
 
-<style>
-    /* El contenedor manda sobre el tamaño */
+  <script src="https://unpkg.com/voximplant-websdk@4.11.1-2965"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ===== CONTENEDOR LOCAL (PIP) ===== */
     #clientLocalVideo {
-        position: relative;
-        overflow: hidden;
-        display: block !important; /* Asegura que el div tenga dimensiones */
+      position: absolute;
+      overflow: hidden;
+      z-index: 20;
     }
 
-    /* Forzamos al elemento que inyecta Voximplant */
     #clientLocalVideo video {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        position: absolute;
-        top: 0;
-        left: 0;
-        transform: rotateY(180deg); /* Efecto espejo */
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform: rotateY(180deg);
     }
 
-    /* Estilo para el video del agente (cuadro grande) */
+    /* ===== VIDEO REMOTO ===== */
     #agentVideo video {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
     }
-</style>
+  </style>
 </head>
+
 <body class="bg-slate-900 text-white flex flex-col items-center justify-center min-h-screen">
-    <div class="text-center">
-        <h1 class="text-3xl font-light mb-8 tracking-widest uppercase">Audi Live Support</h1>
-        
-        <!-- Video remoto: agente -->
-        <div id="agentVideo" class="video-wrapper w-[640px] h-[360px] bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl mb-3 flex items-center justify-center">
-            <!-- NUEVO: video explícito para el remoto -->
-            <video id="remoteVideo" autoplay playsinline></video>
-            <!-- Texto de estado (puede quedar detrás del video) -->
-            <p id="statusLabel" class="text-slate-500 font-mono text-xs absolute">
-                LISTO PARA CONECTAR
-            </p>
-        </div>
-        
-        <!-- Video local: cliente -->
-        <div id="clientLocalVideo" class="video-wrapper w-[200px] h-[112px] bg-slate-900 rounded-xl border border-slate-700 shadow-lg mb-6 mx-auto flex items-center justify-center text-[10px] text-slate-500">
-            PREVIEW LOCAL
-        </div>
-        
-        <button id="btnCall" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-8 py-3 rounded-full font-bold transition-all transform hover:scale-105">
-            INICIAR VIDEOLLAMADA
-        </button>
+
+  <h1 class="text-3xl font-light mb-8 tracking-widest uppercase">
+    Audi Live Support
+  </h1>
+
+  <!-- ===== ESCENARIO DE VIDEO ===== -->
+  <div id="videoStage" class="relative w-[640px] h-[360px] mb-6">
+
+    <!-- VIDEO REMOTO -->
+    <div
+      id="agentVideo"
+      class="absolute inset-0 bg-slate-800 rounded-2xl overflow-hidden
+             border border-slate-700 shadow-2xl
+             flex items-center justify-center"
+    >
+      <p id="statusLabel"
+         class="absolute text-slate-500 font-mono text-xs z-10">
+        LISTO PARA CONECTAR
+      </p>
     </div>
 
-    <script src="client.js"></script>
+    <!-- VIDEO LOCAL (PIP) -->
+    <div
+      id="clientLocalVideo"
+      class="absolute bottom-4 right-4
+             w-[200px] h-[112px]
+             bg-slate-900 rounded-xl border border-slate-700
+             shadow-lg flex items-center justify-center
+             text-[10px] text-slate-500"
+    >
+      PREVIEW LOCAL
+    </div>
+
+  </div>
+
+  <button
+    id="btnCall"
+    class="bg-emerald-500 hover:bg-emerald-400 text-slate-900
+           px-8 py-3 rounded-full font-bold transition-all
+           transform hover:scale-105"
+  >
+    INICIAR VIDEOLLAMADA
+  </button>
+  <button
+  id="btnMic"
+  class="bg-slate-700 hover:bg-slate-600 text-white
+         px-4 py-2 rounded-full text-xs font-mono"
+>
+  🎤 MIC ON
+</button>
+
+  <!-- 🔒 TU JS, SIN TOCAR -->
+  <script src="client.js"></script>
 </body>
 </html>
